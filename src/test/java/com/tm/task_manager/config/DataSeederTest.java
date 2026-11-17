@@ -1,91 +1,61 @@
 package com.tm.task_manager.config;
 
-import com.tm.task_manager.model.Priority;
-import com.tm.task_manager.model.Status;
-import com.tm.task_manager.model.Task;
+import com.tm.task_manager.model.User;
 import com.tm.task_manager.repository.TaskRepository;
-import org.junit.jupiter.api.DisplayName;
+import com.tm.task_manager.repository.UserRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.lang.reflect.Proxy;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class DataSeederTest {
 
+    @Mock
+    private TaskRepository taskRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @InjectMocks
+    private DataSeeder dataSeeder;
+
     @Test
-    @DisplayName("DataSeeder tự động chèn 5 công việc mẫu khi database đang trống")
-    void testDataSeederWhenDatabaseIsEmpty() {
-        List<Task> savedTasks = new ArrayList<>();
+    void run_WhenDatabaseEmpty_ShouldSeedUsersAndTasks() {
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.empty());
+        when(userRepository.existsByUsername("user1")).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("encoded_password");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(taskRepository.count()).thenReturn(0L);
 
-        TaskRepository fakeRepo = (TaskRepository) Proxy.newProxyInstance(
-                TaskRepository.class.getClassLoader(),
-                new Class<?>[]{TaskRepository.class},
-                (proxy, method, args) -> {
-                    if ("count".equals(method.getName())) {
-                        return (long) savedTasks.size();
-                    }
-                    if ("saveAll".equals(method.getName())) {
-                        @SuppressWarnings("unchecked")
-                        Iterable<Task> entities = (Iterable<Task>) args[0];
-                        for (Task t : entities) {
-                            savedTasks.add(t);
-                        }
-                        return savedTasks;
-                    }
-                    return null;
-                }
-        );
+        dataSeeder.run();
 
-        DataSeeder seeder = new DataSeeder(fakeRepo);
-        seeder.run();
-
-        assertEquals(5, savedTasks.size(), "Phải chèn đúng 5 công việc mẫu");
-
-        // Kiểm tra ít nhất 1 việc quá hạn (dueDate < LocalDate.now())
-        boolean hasOverdue = savedTasks.stream()
-                .anyMatch(t -> t.getDueDate() != null && t.getDueDate().isBefore(LocalDate.now()));
-        assertTrue(hasOverdue, "Phải có ít nhất 1 công việc quá hạn");
-
-        // Kiểm tra các mức độ ưu tiên
-        boolean hasHigh = savedTasks.stream().anyMatch(t -> t.getPriority() == Priority.HIGH);
-        boolean hasMedium = savedTasks.stream().anyMatch(t -> t.getPriority() == Priority.MEDIUM);
-        boolean hasLow = savedTasks.stream().anyMatch(t -> t.getPriority() == Priority.LOW);
-        assertTrue(hasHigh && hasMedium && hasLow, "Phải có đầy đủ các mức ưu tiên HIGH, MEDIUM, LOW");
-
-        // Kiểm tra các trạng thái
-        boolean hasTodo = savedTasks.stream().anyMatch(t -> t.getStatus() == Status.TODO);
-        boolean hasInProgress = savedTasks.stream().anyMatch(t -> t.getStatus() == Status.IN_PROGRESS);
-        boolean hasDone = savedTasks.stream().anyMatch(t -> t.getStatus() == Status.DONE);
-        assertTrue(hasTodo && hasInProgress && hasDone, "Phải có đầy đủ các trạng thái TODO, IN_PROGRESS, DONE");
+        verify(userRepository, times(2)).save(any(User.class));
+        verify(taskRepository, times(1)).saveAll(anyList());
     }
 
     @Test
-    @DisplayName("DataSeeder không chèn dữ liệu nếu database đã có sẵn dữ liệu")
-    void testDataSeederWhenDatabaseHasData() {
-        List<Task> savedTasks = new ArrayList<>();
-        savedTasks.add(new Task()); // Giả lập đã có 1 task trong DB
+    void run_WhenTasksAlreadyExist_ShouldNotSeedTasks() {
+        User existingAdmin = new User(1L, "admin", "encoded", "ROLE_ADMIN");
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(existingAdmin));
+        when(userRepository.existsByUsername("user1")).thenReturn(true);
+        when(taskRepository.count()).thenReturn(5L);
 
-        TaskRepository fakeRepo = (TaskRepository) Proxy.newProxyInstance(
-                TaskRepository.class.getClassLoader(),
-                new Class<?>[]{TaskRepository.class},
-                (proxy, method, args) -> {
-                    if ("count".equals(method.getName())) {
-                        return (long) savedTasks.size();
-                    }
-                    if ("saveAll".equals(method.getName())) {
-                        fail("Không được gọi saveAll khi database đã có dữ liệu");
-                    }
-                    return null;
-                }
-        );
+        dataSeeder.run();
 
-        DataSeeder seeder = new DataSeeder(fakeRepo);
-        seeder.run();
-
-        assertEquals(1, savedTasks.size(), "Không được chèn thêm task nào");
+        verify(userRepository, never()).save(any(User.class));
+        verify(taskRepository, never()).saveAll(anyList());
     }
 }

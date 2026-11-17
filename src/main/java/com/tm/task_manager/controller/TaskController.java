@@ -3,6 +3,8 @@ package com.tm.task_manager.controller;
 import com.tm.task_manager.model.Priority;
 import com.tm.task_manager.model.Status;
 import com.tm.task_manager.model.Task;
+import com.tm.task_manager.model.User;
+import com.tm.task_manager.repository.UserRepository;
 import com.tm.task_manager.service.TaskService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.security.Principal;
 import java.time.LocalDate;
 
 @Controller
@@ -23,18 +26,18 @@ import java.time.LocalDate;
 public class TaskController {
 
     private final TaskService taskService;
+    private final UserRepository userRepository;
 
-    /**
-     * Chuyển hướng trang chủ về danh sách công việc.
-     */
+    private User getCurrentUser(Principal principal) {
+        return userRepository.findByUsername(principal.getName())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin người dùng hiện tại!"));
+    }
+
     @GetMapping("/")
     public String index() {
         return "redirect:/tasks";
     }
 
-    /**
-     * Hiển thị danh sách công việc có phân trang, sắp xếp và lọc.
-     */
     @GetMapping("/tasks")
     public String listTasks(
             @RequestParam(required = false) String keyword,
@@ -44,16 +47,19 @@ public class TaskController {
             @RequestParam(defaultValue = "5") int size,
             @RequestParam(defaultValue = "dueDate") String sortField,
             @RequestParam(defaultValue = "asc") String sortDir,
+            Principal principal,
             Model model) {
 
-        // Giới hạn trường sắp xếp an toàn giữa dueDate và createdAt
+        User currentUser = getCurrentUser(principal);
+
         String validSortField = "createdAt".equalsIgnoreCase(sortField) ? "createdAt" : "dueDate";
         Sort.Direction direction = "desc".equalsIgnoreCase(sortDir) ? Sort.Direction.DESC : Sort.Direction.ASC;
         Sort sort = Sort.by(direction, validSortField);
         Pageable pageable = PageRequest.of(Math.max(0, page), size > 0 ? size : 5, sort);
 
-        Page<Task> taskPage = taskService.getTasks(keyword, status, priority, pageable);
+        Page<Task> taskPage = taskService.getTasksByUser(currentUser, keyword, status, priority, pageable);
 
+        model.addAttribute("currentUsername", currentUser.getUsername());
         model.addAttribute("taskPage", taskPage);
         model.addAttribute("tasks", taskPage.getContent());
         model.addAttribute("currentPage", page);
@@ -63,21 +69,19 @@ public class TaskController {
         model.addAttribute("sortDir", direction.name().toLowerCase());
         model.addAttribute("reverseSortDir", direction == Sort.Direction.ASC ? "desc" : "asc");
 
-        model.addAttribute("todoCount", taskService.countByStatus(Status.TODO));
-        model.addAttribute("inProgressCount", taskService.countByStatus(Status.IN_PROGRESS));
-        model.addAttribute("doneCount", taskService.countByStatus(Status.DONE));
+        model.addAttribute("todoCount", taskService.countByUserAndStatus(currentUser, Status.TODO));
+        model.addAttribute("inProgressCount", taskService.countByUserAndStatus(currentUser, Status.IN_PROGRESS));
+        model.addAttribute("doneCount", taskService.countByUserAndStatus(currentUser, Status.DONE));
         model.addAttribute("statuses", Status.values());
         model.addAttribute("priorities", Priority.values());
         model.addAttribute("today", LocalDate.now());
 
-        // Đảm bảo luôn có đối tượng task cho Modal nếu chưa có từ flash attributes
         if (!model.containsAttribute("task")) {
             model.addAttribute("task", new Task());
         }
         boolean openModal = Boolean.TRUE.equals(model.asMap().get("openModal"));
         model.addAttribute("openModal", openModal);
 
-        // Giữ lại các giá trị lọc trên thanh tìm kiếm
         model.addAttribute("keyword", keyword);
         model.addAttribute("status", status);
         model.addAttribute("priority", priority);
@@ -85,13 +89,11 @@ public class TaskController {
         return "tasks/list";
     }
 
-    /**
-     * Lưu mới hoặc cập nhật công việc từ Modal.
-     */
     @PostMapping("/tasks/save")
     public String saveTask(
             @Valid @ModelAttribute("task") Task task,
             BindingResult bindingResult,
+            Principal principal,
             RedirectAttributes redirectAttributes) {
 
         if (bindingResult.hasErrors()) {
@@ -103,40 +105,35 @@ public class TaskController {
             return "redirect:/tasks";
         }
 
+        User currentUser = getCurrentUser(principal);
         boolean isNew = (task.getId() == null);
-        taskService.saveTask(task);
+        taskService.saveTaskForUser(task, currentUser);
+
         redirectAttributes.addFlashAttribute("message",
                 isNew ? "Thêm mới công việc thành công!" : "Cập nhật công việc thành công!");
         redirectAttributes.addFlashAttribute("alertType", "success");
         return "redirect:/tasks";
     }
 
-    /**
-     * Đổi nhanh trạng thái (TODO <-> DONE).
-     */
     @GetMapping("/tasks/toggle/{id}")
-    public String toggleStatus(@PathVariable Long id, RedirectAttributes redirectAttributes) {
-        Task updatedTask = taskService.toggleStatus(id);
+    public String toggleStatus(@PathVariable Long id, Principal principal, RedirectAttributes redirectAttributes) {
+        User currentUser = getCurrentUser(principal);
+        Task updatedTask = taskService.toggleStatusForUser(id, currentUser);
         redirectAttributes.addFlashAttribute("message",
                 "Đã đổi trạng thái công việc sang: " + updatedTask.getStatus().getDisplayName());
         redirectAttributes.addFlashAttribute("alertType", "info");
         return "redirect:/tasks";
     }
 
-    /**
-     * Xóa công việc theo ID.
-     */
     @GetMapping("/tasks/delete/{id}")
-    public String deleteTask(@PathVariable Long id, RedirectAttributes redirectAttributes) {
-        taskService.deleteTask(id);
+    public String deleteTask(@PathVariable Long id, Principal principal, RedirectAttributes redirectAttributes) {
+        User currentUser = getCurrentUser(principal);
+        taskService.deleteTaskForUser(id, currentUser);
         redirectAttributes.addFlashAttribute("message", "Đã xóa công việc thành công!");
         redirectAttributes.addFlashAttribute("alertType", "success");
         return "redirect:/tasks";
     }
 
-    /**
-     * Bắt ngoại lệ nếu không tìm thấy task theo ID và chuyển hướng về trang danh sách.
-     */
     @ExceptionHandler(RuntimeException.class)
     public String handleRuntimeException(RuntimeException ex, RedirectAttributes redirectAttributes) {
         redirectAttributes.addFlashAttribute("message", ex.getMessage());

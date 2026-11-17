@@ -44,6 +44,10 @@ public class Task {
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
     // Tự động gán thời gian tạo và giá trị mặc định trước khi lưu xuống DB
     @PrePersist
     protected void onCreate() {

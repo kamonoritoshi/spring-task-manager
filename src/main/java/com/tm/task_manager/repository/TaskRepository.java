@@ -28,4 +28,7 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
 
     // Đếm số lượng công việc theo từng trạng thái để làm thẻ thống kê nhanh
     long countByStatus(Status status);
+
+    // đếm số lượng công việc theo từng User và Status
+    long countByUserAndStatus(com.tm.task_manager.model.User user, Status status);
 }

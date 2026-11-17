@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi" data-bs-theme="light" xmlns:th="http://www.thymeleaf.org">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +8,7 @@
 
     <!-- Script chống nhấp nháy giao diện (FOUC) khi tải trang -->
     <script>
-        (function() {
+        (function () {
             const savedTheme = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-bs-theme', savedTheme);
         })();
@@ -23,26 +24,33 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             min-height: 100vh;
         }
+
         .stat-card {
             border-radius: 12px;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
+
         .stat-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12) !important;
         }
-        .table > :not(caption) > * > * {
+
+        .table> :not(caption)>*>* {
             padding: 0.85rem 0.85rem;
             vertical-align: middle;
         }
-        .badge-priority, .badge-status {
+
+        .badge-priority,
+        .badge-status {
             font-size: 0.85rem;
             padding: 0.4em 0.7em;
             border-radius: 20px;
         }
+
         .modal-content {
             border-radius: 14px;
         }
+
         .sort-header {
             color: inherit;
             text-decoration: none;
@@ -50,532 +58,537 @@
             align-items: center;
             gap: 4px;
         }
+
         .sort-header:hover {
             color: var(--bs-primary);
         }
     </style>
 </head>
+
 <body class="bg-body-tertiary">
 
-<!-- Navbar -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm mb-4">
-    <div class="container">
-        <a class="navbar-brand fw-bold d-flex align-items-center" th:href="@{/tasks}">
-            <i class="bi bi-check2-square fs-3 me-2"></i> Task Manager
-        </a>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm mb-4">
+        <div class="container">
+            <a class="navbar-brand fw-bold d-flex align-items-center" th:href="@{/tasks}">
+                <i class="bi bi-check2-square fs-3 me-2"></i> Task Manager
+            </a>
 
-        <div class="ms-auto d-flex align-items-center gap-2">
-            <!-- Theme Toggle Button (Dark/Light Mode) -->
-            <button class="btn btn-outline-light btn-sm d-flex align-items-center gap-1 px-3"
-                    id="themeToggle"
-                    type="button"
-                    title="Chuyển chế độ sáng/tối">
-                <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
-                <span class="d-none d-sm-inline small" id="themeText">Giao diện</span>
-            </button>
+            <div class="ms-auto d-flex align-items-center gap-2">
+                <!-- Theme Toggle Button (Dark/Light Mode) -->
+                <button class="btn btn-outline-light btn-sm d-flex align-items-center gap-1 px-3" id="themeToggle"
+                    type="button" title="Chuyển chế độ sáng/tối">
+                    <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
+                    <span class="d-none d-sm-inline small" id="themeText">Giao diện</span>
+                </button>
 
-            <!-- Quick Add Button -->
-            <button type="button"
-                    class="btn btn-light btn-sm fw-semibold shadow-sm d-flex align-items-center"
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-secondary-subtle text-body-emphasis px-3 py-2">
+                        <i class="bi bi-person-circle me-1"></i> <span th:text="${currentUsername}">User</span>
+                    </span>
+                    <form th:action="@{/logout}" method="post" class="m-0">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-box-arrow-right"></i> Đăng xuất
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Quick Add Button -->
+                <button type="button" class="btn btn-light btn-sm fw-semibold shadow-sm d-flex align-items-center"
                     onclick="openCreateModal()">
-                <i class="bi bi-plus-lg me-1"></i> Thêm mới
-            </button>
+                    <i class="bi bi-plus-lg me-1"></i> Thêm mới
+                </button>
+            </div>
         </div>
-    </div>
-</nav>
+    </nav>
 
-<div class="container pb-5">
+    <div class="container pb-5">
 
-    <!-- Flash Message Alert -->
-    <div th:if="${message}"
-         class="alert alert-dismissible fade show shadow-sm d-flex align-items-center mb-4"
-         th:classappend="${alertType != null ? 'alert-' + alertType : 'alert-success'}"
-         role="alert">
-        <i class="bi bi-info-circle-fill me-2 fs-5"></i>
-        <div th:text="${message}"></div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
+        <!-- Flash Message Alert -->
+        <div th:if="${message}" class="alert alert-dismissible fade show shadow-sm d-flex align-items-center mb-4"
+            th:classappend="${alertType != null ? 'alert-' + alertType : 'alert-success'}" role="alert">
+            <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+            <div th:text="${message}"></div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
 
-    <!-- Top Summary Cards -->
-    <div class="row g-3 mb-4">
-        <!-- Card: Cần làm (TODO) -->
-        <div class="col-md-4">
-            <div class="card stat-card shadow-sm border-0 border-start border-warning border-4 p-3 bg-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-secondary small text-uppercase fw-bold">Cần làm</div>
-                        <h2 class="fw-bold mb-0 text-warning" th:text="${todoCount}">0</h2>
+        <!-- Top Summary Cards -->
+        <div class="row g-3 mb-4">
+            <!-- Card: Cần làm (TODO) -->
+            <div class="col-md-4">
+                <div class="card stat-card shadow-sm border-0 border-start border-warning border-4 p-3 bg-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-secondary small text-uppercase fw-bold">Cần làm</div>
+                            <h2 class="fw-bold mb-0 text-warning" th:text="${todoCount}">0</h2>
+                        </div>
+                        <div class="bg-warning-subtle text-warning p-3 rounded-circle">
+                            <i class="bi bi-hourglass-split fs-3"></i>
+                        </div>
                     </div>
-                    <div class="bg-warning-subtle text-warning p-3 rounded-circle">
-                        <i class="bi bi-hourglass-split fs-3"></i>
+                </div>
+            </div>
+
+            <!-- Card: Đang thực hiện (IN_PROGRESS) -->
+            <div class="col-md-4">
+                <div class="card stat-card shadow-sm border-0 border-start border-primary border-4 p-3 bg-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-secondary small text-uppercase fw-bold">Đang thực hiện</div>
+                            <h2 class="fw-bold mb-0 text-primary" th:text="${inProgressCount}">0</h2>
+                        </div>
+                        <div class="bg-primary-subtle text-primary p-3 rounded-circle">
+                            <i class="bi bi-arrow-repeat fs-3"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card: Hoàn thành (DONE) -->
+            <div class="col-md-4">
+                <div class="card stat-card shadow-sm border-0 border-start border-success border-4 p-3 bg-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-secondary small text-uppercase fw-bold">Hoàn thành</div>
+                            <h2 class="fw-bold mb-0 text-success" th:text="${doneCount}">0</h2>
+                        </div>
+                        <div class="bg-success-subtle text-success p-3 rounded-circle">
+                            <i class="bi bi-check2-circle fs-3"></i>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Card: Đang thực hiện (IN_PROGRESS) -->
-        <div class="col-md-4">
-            <div class="card stat-card shadow-sm border-0 border-start border-primary border-4 p-3 bg-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-secondary small text-uppercase fw-bold">Đang thực hiện</div>
-                        <h2 class="fw-bold mb-0 text-primary" th:text="${inProgressCount}">0</h2>
-                    </div>
-                    <div class="bg-primary-subtle text-primary p-3 rounded-circle">
-                        <i class="bi bi-arrow-repeat fs-3"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Filter & Action Bar -->
+        <div class="card shadow-sm border-0 rounded-3 mb-4 p-3 bg-body">
+            <form th:action="@{/tasks}" method="get" class="row g-2 align-items-center">
+                <!-- Hidden Sort Fields to Preserve Sorting on Filter Submit -->
+                <input type="hidden" name="sortField" th:value="${sortField}" />
+                <input type="hidden" name="sortDir" th:value="${sortDir}" />
 
-        <!-- Card: Hoàn thành (DONE) -->
-        <div class="col-md-4">
-            <div class="card stat-card shadow-sm border-0 border-start border-success border-4 p-3 bg-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="text-secondary small text-uppercase fw-bold">Hoàn thành</div>
-                        <h2 class="fw-bold mb-0 text-success" th:text="${doneCount}">0</h2>
-                    </div>
-                    <div class="bg-success-subtle text-success p-3 rounded-circle">
-                        <i class="bi bi-check2-circle fs-3"></i>
+                <!-- Search Keyword -->
+                <div class="col-lg-4 col-md-12">
+                    <div class="input-group">
+                        <span class="input-group-text bg-body-secondary border-end-0"><i
+                                class="bi bi-search text-secondary"></i></span>
+                        <input type="text" class="form-control border-start-0" name="keyword" th:value="${keyword}"
+                            placeholder="Tìm kiếm theo tiêu đề công việc...">
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Filter & Action Bar -->
-    <div class="card shadow-sm border-0 rounded-3 mb-4 p-3 bg-body">
-        <form th:action="@{/tasks}" method="get" class="row g-2 align-items-center">
-            <!-- Hidden Sort Fields to Preserve Sorting on Filter Submit -->
-            <input type="hidden" name="sortField" th:value="${sortField}" />
-            <input type="hidden" name="sortDir" th:value="${sortDir}" />
-
-            <!-- Search Keyword -->
-            <div class="col-lg-4 col-md-12">
-                <div class="input-group">
-                    <span class="input-group-text bg-body-secondary border-end-0"><i class="bi bi-search text-secondary"></i></span>
-                    <input type="text"
-                           class="form-control border-start-0"
-                           name="keyword"
-                           th:value="${keyword}"
-                           placeholder="Tìm kiếm theo tiêu đề công việc...">
-                </div>
-            </div>
-
-            <!-- Status Dropdown -->
-            <div class="col-lg-2 col-md-4">
-                <select class="form-select" name="status">
-                    <option value="">-- Trạng thái --</option>
-                    <option th:each="s : ${statuses}"
-                            th:value="${s}"
-                            th:text="${s.displayName}"
+                <!-- Status Dropdown -->
+                <div class="col-lg-2 col-md-4">
+                    <select class="form-select" name="status">
+                        <option value="">-- Trạng thái --</option>
+                        <option th:each="s : ${statuses}" th:value="${s}" th:text="${s.displayName}"
                             th:selected="${status != null and status.name() == s.name()}">
-                    </option>
-                </select>
-            </div>
+                        </option>
+                    </select>
+                </div>
 
-            <!-- Priority Dropdown -->
-            <div class="col-lg-2 col-md-4">
-                <select class="form-select" name="priority">
-                    <option value="">-- Mức ưu tiên --</option>
-                    <option th:each="p : ${priorities}"
-                            th:value="${p}"
-                            th:text="${p.displayName}"
+                <!-- Priority Dropdown -->
+                <div class="col-lg-2 col-md-4">
+                    <select class="form-select" name="priority">
+                        <option value="">-- Mức ưu tiên --</option>
+                        <option th:each="p : ${priorities}" th:value="${p}" th:text="${p.displayName}"
                             th:selected="${priority != null and priority.name() == p.name()}">
-                    </option>
-                </select>
-            </div>
+                        </option>
+                    </select>
+                </div>
 
-            <!-- Buttons: Filter, Reset, Add -->
-            <div class="col-lg-4 col-md-4 d-flex gap-2 justify-content-lg-end">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-funnel-fill me-1"></i> Lọc
-                </button>
-                <a th:href="@{/tasks}" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-counterclockwise me-1"></i> Đặt lại
-                </a>
-                <button type="button" class="btn btn-success text-nowrap" onclick="openCreateModal()">
-                    <i class="bi bi-plus-lg me-1"></i> Thêm công việc
-                </button>
-            </div>
-        </form>
-    </div>
+                <!-- Buttons: Filter, Reset, Add -->
+                <div class="col-lg-4 col-md-4 d-flex gap-2 justify-content-lg-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-funnel-fill me-1"></i> Lọc
+                    </button>
+                    <a th:href="@{/tasks}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Đặt lại
+                    </a>
+                    <button type="button" class="btn btn-success text-nowrap" onclick="openCreateModal()">
+                        <i class="bi bi-plus-lg me-1"></i> Thêm công việc
+                    </button>
+                </div>
+            </form>
+        </div>
 
-    <!-- Task Table Card -->
-    <div class="card shadow-sm border-0 rounded-3 overflow-hidden bg-body">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light text-uppercase small text-secondary">
-                    <tr>
-                        <th style="width: 50px;" class="text-center">#</th>
-                        <th>Tiêu đề công việc</th>
-                        <th style="width: 140px;">Mức ưu tiên</th>
-                        <th style="width: 150px;">Trạng thái</th>
-                        <th style="width: 150px;">
-                            <!-- Sortable Header: dueDate -->
-                            <a class="sort-header"
-                               th:href="@{/tasks(page=0, size=${taskPage != null ? taskPage.size : 5}, keyword=${keyword}, status=${status}, priority=${priority}, sortField='dueDate', sortDir=${sortField == 'dueDate' ? reverseSortDir : 'asc'})}">
-                                <span>Hạn chót</span>
-                                <i th:if="${sortField == 'dueDate' and sortDir == 'asc'}" class="bi bi-arrow-up text-primary"></i>
-                                <i th:if="${sortField == 'dueDate' and sortDir == 'desc'}" class="bi bi-arrow-down text-primary"></i>
-                                <i th:if="${sortField != 'dueDate'}" class="bi bi-arrow-down-up text-muted opacity-50"></i>
-                            </a>
-                        </th>
-                        <th style="width: 150px;">
-                            <!-- Sortable Header: createdAt -->
-                            <a class="sort-header"
-                               th:href="@{/tasks(page=0, size=${taskPage != null ? taskPage.size : 5}, keyword=${keyword}, status=${status}, priority=${priority}, sortField='createdAt', sortDir=${sortField == 'createdAt' ? reverseSortDir : 'asc'})}">
-                                <span>Ngày tạo</span>
-                                <i th:if="${sortField == 'createdAt' and sortDir == 'asc'}" class="bi bi-arrow-up text-primary"></i>
-                                <i th:if="${sortField == 'createdAt' and sortDir == 'desc'}" class="bi bi-arrow-down text-primary"></i>
-                                <i th:if="${sortField != 'createdAt'}" class="bi bi-arrow-down-up text-muted opacity-50"></i>
-                            </a>
-                        </th>
-                        <th style="width: 140px;" class="text-center">Thao tác</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Empty State -->
-                    <tr th:if="${#lists.isEmpty(tasks)}">
-                        <td colspan="7" class="text-center py-5 text-secondary">
-                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                            <div class="fw-semibold">Không tìm thấy công việc nào phù hợp</div>
-                            <div class="small">Hãy thử thay đổi điều kiện lọc hoặc tạo thêm công việc mới.</div>
-                        </td>
-                    </tr>
-
-                    <!-- Task Item -->
-                    <tr th:each="task, stat : ${tasks}">
-                        <td class="text-center text-secondary fw-semibold"
-                            th:text="${currentPage != null ? (currentPage * 5 + stat.count) : stat.count}">1</td>
-
-                        <!-- Title + Description -->
-                        <td>
-                            <div th:classappend="${task.status != null and task.status.name() == 'DONE' ? 'text-decoration-line-through text-secondary' : 'fw-bold'}"
-                                 th:text="${task.title != null ? task.title : ''}">
-                                Tiêu đề công việc
-                            </div>
-                            <small th:if="${task.description != null and !#strings.isEmpty(task.description)}"
-                                   class="text-secondary d-block text-truncate"
-                                   style="max-width: 380px;"
-                                   th:text="${task.description}">
-                                Mô tả công việc
-                            </small>
-                        </td>
-
-                        <!-- Priority Badge -->
-                        <td>
-                            <span th:if="${task.priority != null and task.priority.name() == 'HIGH'}" class="badge bg-danger badge-priority">
-                                <i class="bi bi-arrow-up-circle-fill me-1"></i>Cao
-                            </span>
-                            <span th:if="${task.priority != null and task.priority.name() == 'MEDIUM'}" class="badge bg-warning text-dark badge-priority">
-                                <i class="bi bi-dash-circle-fill me-1"></i>Trung bình
-                            </span>
-                            <span th:if="${task.priority != null and task.priority.name() == 'LOW'}" class="badge bg-secondary badge-priority">
-                                <i class="bi bi-arrow-down-circle-fill me-1"></i>Thấp
-                            </span>
-                        </td>
-
-                        <!-- Status Badge -->
-                        <td>
-                            <span th:if="${task.status != null and task.status.name() == 'TODO'}" class="badge bg-warning text-dark badge-status">
-                                <i class="bi bi-hourglass-split me-1"></i>Cần làm
-                            </span>
-                            <span th:if="${task.status != null and task.status.name() == 'IN_PROGRESS'}" class="badge bg-primary badge-status">
-                                <i class="bi bi-arrow-repeat me-1"></i>Đang thực hiện
-                            </span>
-                            <span th:if="${task.status != null and task.status.name() == 'DONE'}" class="badge bg-success badge-status">
-                                <i class="bi bi-check-circle-fill me-1"></i>Hoàn thành
-                            </span>
-                        </td>
-
-                        <!-- Due Date -->
-                        <td>
-                            <span th:class="${task.dueDate != null and today != null and task.dueDate.isBefore(today) and (task.status == null or task.status.name() != 'DONE')} ? 'text-danger fw-bold' : ''">
-                                <i th:if="${task.dueDate != null and today != null and task.dueDate.isBefore(today) and (task.status == null or task.status.name() != 'DONE')}"
-                                   class="bi bi-exclamation-triangle-fill text-danger me-1"></i>
-                                <span th:text="${task.dueDate != null ? task.dueDate : 'Không có hạn'}">2026-12-31</span>
-                                <small th:if="${task.dueDate != null and today != null and task.dueDate.isBefore(today) and (task.status == null or task.status.name() != 'DONE')}"
-                                       class="badge bg-danger ms-1">Quá hạn</small>
-                            </span>
-                        </td>
-
-                        <!-- Created At -->
-                        <td>
-                            <span class="text-secondary small"
-                                  th:text="${task.createdAt != null ? #temporals.format(task.createdAt, 'yyyy-MM-dd HH:mm') : '-'}">
-                                2026-11-16 00:00
-                            </span>
-                        </td>
-
-                        <!-- Action Buttons -->
-                        <td class="text-center">
-                            <div class="btn-group btn-group-sm" role="group">
-                                <!-- Toggle DONE -->
-                                <a th:href="@{/tasks/toggle/{id}(id=${task.id})}"
-                                   class="btn"
-                                   th:classappend="${task.status != null and task.status.name() == 'DONE' ? 'btn-outline-warning' : 'btn-outline-success'}"
-                                   th:title="${task.status != null and task.status.name() == 'DONE' ? 'Chuyển về Cần làm' : 'Đánh dấu Hoàn thành'}">
-                                    <i th:class="${task.status != null and task.status.name() == 'DONE' ? 'bi bi-arrow-counterclockwise' : 'bi bi-check2'}"></i>
+        <!-- Task Table Card -->
+        <div class="card shadow-sm border-0 rounded-3 overflow-hidden bg-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-uppercase small text-secondary">
+                        <tr>
+                            <th style="width: 50px;" class="text-center">#</th>
+                            <th>Tiêu đề công việc</th>
+                            <th style="width: 140px;">Mức ưu tiên</th>
+                            <th style="width: 150px;">Trạng thái</th>
+                            <th style="width: 150px;">
+                                <!-- Sortable Header: dueDate -->
+                                <a class="sort-header"
+                                    th:href="@{/tasks(page=0, size=${taskPage != null ? taskPage.size : 5}, keyword=${keyword}, status=${status}, priority=${priority}, sortField='dueDate', sortDir=${sortField == 'dueDate' ? reverseSortDir : 'asc'})}">
+                                    <span>Hạn chót</span>
+                                    <i th:if="${sortField == 'dueDate' and sortDir == 'asc'}"
+                                        class="bi bi-arrow-up text-primary"></i>
+                                    <i th:if="${sortField == 'dueDate' and sortDir == 'desc'}"
+                                        class="bi bi-arrow-down text-primary"></i>
+                                    <i th:if="${sortField != 'dueDate'}"
+                                        class="bi bi-arrow-down-up text-muted opacity-50"></i>
                                 </a>
+                            </th>
+                            <th style="width: 150px;">
+                                <!-- Sortable Header: createdAt -->
+                                <a class="sort-header"
+                                    th:href="@{/tasks(page=0, size=${taskPage != null ? taskPage.size : 5}, keyword=${keyword}, status=${status}, priority=${priority}, sortField='createdAt', sortDir=${sortField == 'createdAt' ? reverseSortDir : 'asc'})}">
+                                    <span>Ngày tạo</span>
+                                    <i th:if="${sortField == 'createdAt' and sortDir == 'asc'}"
+                                        class="bi bi-arrow-up text-primary"></i>
+                                    <i th:if="${sortField == 'createdAt' and sortDir == 'desc'}"
+                                        class="bi bi-arrow-down text-primary"></i>
+                                    <i th:if="${sortField != 'createdAt'}"
+                                        class="bi bi-arrow-down-up text-muted opacity-50"></i>
+                                </a>
+                            </th>
+                            <th style="width: 140px;" class="text-center">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Empty State -->
+                        <tr th:if="${#lists.isEmpty(tasks)}">
+                            <td colspan="7" class="text-center py-5 text-secondary">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                <div class="fw-semibold">Không tìm thấy công việc nào phù hợp</div>
+                                <div class="small">Hãy thử thay đổi điều kiện lọc hoặc tạo thêm công việc mới.</div>
+                            </td>
+                        </tr>
 
-                                <!-- Edit (Opens Modal via data-* attributes) -->
-                                <button type="button"
-                                        class="btn btn-outline-primary btn-edit-task"
-                                        title="Chỉnh sửa công việc"
-                                        th:data-id="${task.id}"
+                        <!-- Task Item -->
+                        <tr th:each="task, stat : ${tasks}">
+                            <td class="text-center text-secondary fw-semibold"
+                                th:text="${currentPage != null ? (currentPage * 5 + stat.count) : stat.count}">1</td>
+
+                            <!-- Title + Description -->
+                            <td>
+                                <div th:classappend="${task.status != null and task.status.name() == 'DONE' ? 'text-decoration-line-through text-secondary' : 'fw-bold'}"
+                                    th:text="${task.title != null ? task.title : ''}">
+                                    Tiêu đề công việc
+                                </div>
+                                <small th:if="${task.description != null and !#strings.isEmpty(task.description)}"
+                                    class="text-secondary d-block text-truncate" style="max-width: 380px;"
+                                    th:text="${task.description}">
+                                    Mô tả công việc
+                                </small>
+                            </td>
+
+                            <!-- Priority Badge -->
+                            <td>
+                                <span th:if="${task.priority != null and task.priority.name() == 'HIGH'}"
+                                    class="badge bg-danger badge-priority">
+                                    <i class="bi bi-arrow-up-circle-fill me-1"></i>Cao
+                                </span>
+                                <span th:if="${task.priority != null and task.priority.name() == 'MEDIUM'}"
+                                    class="badge bg-warning text-dark badge-priority">
+                                    <i class="bi bi-dash-circle-fill me-1"></i>Trung bình
+                                </span>
+                                <span th:if="${task.priority != null and task.priority.name() == 'LOW'}"
+                                    class="badge bg-secondary badge-priority">
+                                    <i class="bi bi-arrow-down-circle-fill me-1"></i>Thấp
+                                </span>
+                            </td>
+
+                            <!-- Status Badge -->
+                            <td>
+                                <span th:if="${task.status != null and task.status.name() == 'TODO'}"
+                                    class="badge bg-warning text-dark badge-status">
+                                    <i class="bi bi-hourglass-split me-1"></i>Cần làm
+                                </span>
+                                <span th:if="${task.status != null and task.status.name() == 'IN_PROGRESS'}"
+                                    class="badge bg-primary badge-status">
+                                    <i class="bi bi-arrow-repeat me-1"></i>Đang thực hiện
+                                </span>
+                                <span th:if="${task.status != null and task.status.name() == 'DONE'}"
+                                    class="badge bg-success badge-status">
+                                    <i class="bi bi-check-circle-fill me-1"></i>Hoàn thành
+                                </span>
+                            </td>
+
+                            <!-- Due Date -->
+                            <td>
+                                <span
+                                    th:class="${task.dueDate != null and today != null and task.dueDate.isBefore(today) and (task.status == null or task.status.name() != 'DONE')} ? 'text-danger fw-bold' : ''">
+                                    <i th:if="${task.dueDate != null and today != null and task.dueDate.isBefore(today) and (task.status == null or task.status.name() != 'DONE')}"
+                                        class="bi bi-exclamation-triangle-fill text-danger me-1"></i>
+                                    <span
+                                        th:text="${task.dueDate != null ? task.dueDate : 'Không có hạn'}">2026-12-31</span>
+                                    <small
+                                        th:if="${task.dueDate != null and today != null and task.dueDate.isBefore(today) and (task.status == null or task.status.name() != 'DONE')}"
+                                        class="badge bg-danger ms-1">Quá hạn</small>
+                                </span>
+                            </td>
+
+                            <!-- Created At -->
+                            <td>
+                                <span class="text-secondary small"
+                                    th:text="${task.createdAt != null ? #temporals.format(task.createdAt, 'yyyy-MM-dd HH:mm') : '-'}">
+                                    2026-11-16 00:00
+                                </span>
+                            </td>
+
+                            <!-- Action Buttons -->
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <!-- Toggle DONE -->
+                                    <a th:href="@{/tasks/toggle/{id}(id=${task.id})}" class="btn"
+                                        th:classappend="${task.status != null and task.status.name() == 'DONE' ? 'btn-outline-warning' : 'btn-outline-success'}"
+                                        th:title="${task.status != null and task.status.name() == 'DONE' ? 'Chuyển về Cần làm' : 'Đánh dấu Hoàn thành'}">
+                                        <i
+                                            th:class="${task.status != null and task.status.name() == 'DONE' ? 'bi bi-arrow-counterclockwise' : 'bi bi-check2'}"></i>
+                                    </a>
+
+                                    <!-- Edit (Opens Modal via data-* attributes) -->
+                                    <button type="button" class="btn btn-outline-primary btn-edit-task"
+                                        title="Chỉnh sửa công việc" th:data-id="${task.id}"
                                         th:data-title="${task.title != null ? task.title : ''}"
                                         th:data-description="${task.description != null ? task.description : ''}"
                                         th:data-priority="${task.priority != null ? task.priority.name() : 'MEDIUM'}"
                                         th:data-status="${task.status != null ? task.status.name() : 'TODO'}"
                                         th:data-duedate="${task.dueDate != null ? task.dueDate : ''}"
                                         onclick="openEditModal(this)">
-                                    <i class="bi bi-pencil-square"></i>
-                                </button>
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
 
-                                <!-- Delete -->
-                                <a th:href="@{/tasks/delete/{id}(id=${task.id})}"
-                                   class="btn btn-outline-danger"
-                                   onclick="return confirm('Xác nhận xóa?')"
-                                   title="Xóa công việc">
-                                    <i class="bi bi-trash"></i>
-                                </a>
+                                    <!-- Delete -->
+                                    <a th:href="@{/tasks/delete/{id}(id=${task.id})}" class="btn btn-outline-danger"
+                                        onclick="return confirm('Xác nhận xóa?')" title="Xóa công việc">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Bootstrap Pagination Bar (Render when totalPages > 1) -->
+            <div th:if="${totalPages > 1}"
+                class="card-footer bg-body border-top py-3 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2">
+                <div class="small text-secondary">
+                    Hiển thị trang <span class="fw-bold" th:text="${currentPage + 1}">1</span> / <span class="fw-bold"
+                        th:text="${totalPages}">1</span>
+                    (Tổng cộng <span class="fw-bold" th:text="${totalItems}">0</span> công việc)
+                </div>
+
+                <nav aria-label="Task Page Navigation">
+                    <ul class="pagination pagination-sm mb-0">
+                        <!-- Previous Page -->
+                        <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled' : ''">
+                            <a class="page-link"
+                                th:href="@{/tasks(page=${currentPage - 1}, size=${taskPage != null ? taskPage.size : 5}, keyword=${keyword}, status=${status}, priority=${priority}, sortField=${sortField}, sortDir=${sortDir})}"
+                                aria-label="Previous">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+
+                        <!-- Numbered Pages (0..totalPages-1) -->
+                        <li th:each="i : ${#numbers.sequence(0, totalPages - 1)}" class="page-item"
+                            th:classappend="${currentPage == i} ? 'active' : ''">
+                            <a class="page-link"
+                                th:href="@{/tasks(page=${i}, size=${taskPage != null ? taskPage.size : 5}, keyword=${keyword}, status=${status}, priority=${priority}, sortField=${sortField}, sortDir=${sortDir})}"
+                                th:text="${i + 1}">1</a>
+                        </li>
+
+                        <!-- Next Page -->
+                        <li class="page-item" th:classappend="${currentPage + 1 >= totalPages} ? 'disabled' : ''">
+                            <a class="page-link"
+                                th:href="@{/tasks(page=${currentPage + 1}, size=${taskPage != null ? taskPage.size : 5}, keyword=${keyword}, status=${status}, priority=${priority}, sortField=${sortField}, sortDir=${sortDir})}"
+                                aria-label="Next">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Single Bootstrap Modal: Create / Edit Task -->
+    <div class="modal fade" id="taskModal" tabindex="-1" aria-labelledby="taskModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow border-0">
+                <div class="modal-header border-bottom">
+                    <h5 class="modal-title fw-bold d-flex align-items-center" id="taskModalTitle">
+                        <i class="bi bi-plus-circle text-success me-2"></i> Thêm công việc mới
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                </div>
+
+                <form th:action="@{/tasks/save}" th:object="${task}" method="post" id="taskForm">
+                    <div class="modal-body p-4">
+                        <!-- Hidden ID -->
+                        <input type="hidden" id="taskId" th:field="*{id}" />
+
+                        <!-- Title -->
+                        <div class="mb-3">
+                            <label for="taskTitle" class="form-label fw-semibold">
+                                Tiêu đề công việc <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="taskTitle" th:field="*{title}"
+                                th:classappend="${#fields.hasErrors('title')} ? 'is-invalid' : ''"
+                                placeholder="Ví dụ: Hoàn thành báo cáo tiến độ...">
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('title')}" th:errors="*{title}">
+                                Tiêu đề công việc không được để trống
                             </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+                        </div>
 
-        <!-- Bootstrap Pagination Bar (Render when totalPages > 1) -->
-        <div th:if="${totalPages > 1}" class="card-footer bg-body border-top py-3 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2">
-            <div class="small text-secondary">
-                Hiển thị trang <span class="fw-bold" th:text="${currentPage + 1}">1</span> / <span class="fw-bold" th:text="${totalPages}">1</span>
-                (Tổng cộng <span class="fw-bold" th:text="${totalItems}">0</span> công việc)
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label for="taskDescription" class="form-label fw-semibold">Mô tả chi tiết</label>
+                            <textarea class="form-control" id="taskDescription" th:field="*{description}" rows="3"
+                                placeholder="Ghi chú chi tiết công việc (tùy chọn)..."></textarea>
+                        </div>
+
+                        <!-- Priority & Status Row -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="taskPriority" class="form-label fw-semibold">Mức độ ưu tiên</label>
+                                <select class="form-select" id="taskPriority" th:field="*{priority}">
+                                    <option th:each="p : ${priorities}" th:value="${p}" th:text="${p.displayName}">
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="taskStatus" class="form-label fw-semibold">Trạng thái</label>
+                                <select class="form-select" id="taskStatus" th:field="*{status}">
+                                    <option th:each="s : ${statuses}" th:value="${s}" th:text="${s.displayName}">
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Due Date -->
+                        <div class="mb-2">
+                            <label for="taskDueDate" class="form-label fw-semibold">Hạn chót</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-body-secondary"><i
+                                        class="bi bi-calendar-event text-secondary"></i></span>
+                                <input type="date" class="form-control" id="taskDueDate" th:field="*{dueDate}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer border-top bg-body-tertiary">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
+                        <button type="submit" class="btn btn-primary fw-semibold px-4">
+                            <i class="bi bi-save me-1"></i> Lưu công việc
+                        </button>
+                    </div>
+                </form>
             </div>
-
-            <nav aria-label="Task Page Navigation">
-                <ul class="pagination pagination-sm mb-0">
-                    <!-- Previous Page -->
-                    <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled' : ''">
-                        <a class="page-link"
-                           th:href="@{/tasks(page=${currentPage - 1}, size=${taskPage != null ? taskPage.size : 5}, keyword=${keyword}, status=${status}, priority=${priority}, sortField=${sortField}, sortDir=${sortDir})}"
-                           aria-label="Previous">
-                            <i class="bi bi-chevron-left"></i>
-                        </a>
-                    </li>
-
-                    <!-- Numbered Pages (0..totalPages-1) -->
-                    <li th:each="i : ${#numbers.sequence(0, totalPages - 1)}"
-                        class="page-item"
-                        th:classappend="${currentPage == i} ? 'active' : ''">
-                        <a class="page-link"
-                           th:href="@{/tasks(page=${i}, size=${taskPage != null ? taskPage.size : 5}, keyword=${keyword}, status=${status}, priority=${priority}, sortField=${sortField}, sortDir=${sortDir})}"
-                           th:text="${i + 1}">1</a>
-                    </li>
-
-                    <!-- Next Page -->
-                    <li class="page-item" th:classappend="${currentPage + 1 >= totalPages} ? 'disabled' : ''">
-                        <a class="page-link"
-                           th:href="@{/tasks(page=${currentPage + 1}, size=${taskPage != null ? taskPage.size : 5}, keyword=${keyword}, status=${status}, priority=${priority}, sortField=${sortField}, sortDir=${sortDir})}"
-                           aria-label="Next">
-                            <i class="bi bi-chevron-right"></i>
-                        </a>
-                    </li>
-                </ul>
-            </nav>
         </div>
     </div>
 
-</div>
+    <!-- Bootstrap 5.3 JS Bundle CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- Single Bootstrap Modal: Create / Edit Task -->
-<div class="modal fade" id="taskModal" tabindex="-1" aria-labelledby="taskModalTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content shadow border-0">
-            <div class="modal-header border-bottom">
-                <h5 class="modal-title fw-bold d-flex align-items-center" id="taskModalTitle">
-                    <i class="bi bi-plus-circle text-success me-2"></i> Thêm công việc mới
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
-            </div>
+    <!-- Global Functions for Dark Mode, Create Modal & Edit Modal -->
+    <script>
+        // 1. Quản lý Dark Mode
+        const themeToggleBtn = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
 
-            <form th:action="@{/tasks/save}" th:object="${task}" method="post" id="taskForm">
-                <div class="modal-body p-4">
-                    <!-- Hidden ID -->
-                    <input type="hidden" id="taskId" th:field="*{id}" />
-
-                    <!-- Title -->
-                    <div class="mb-3">
-                        <label for="taskTitle" class="form-label fw-semibold">
-                            Tiêu đề công việc <span class="text-danger">*</span>
-                        </label>
-                        <input type="text"
-                               class="form-control"
-                               id="taskTitle"
-                               th:field="*{title}"
-                               th:classappend="${#fields.hasErrors('title')} ? 'is-invalid' : ''"
-                               placeholder="Ví dụ: Hoàn thành báo cáo tiến độ...">
-                        <div class="invalid-feedback" th:if="${#fields.hasErrors('title')}" th:errors="*{title}">
-                            Tiêu đề công việc không được để trống
-                        </div>
-                    </div>
-
-                    <!-- Description -->
-                    <div class="mb-3">
-                        <label for="taskDescription" class="form-label fw-semibold">Mô tả chi tiết</label>
-                        <textarea class="form-control"
-                                  id="taskDescription"
-                                  th:field="*{description}"
-                                  rows="3"
-                                  placeholder="Ghi chú chi tiết công việc (tùy chọn)..."></textarea>
-                    </div>
-
-                    <!-- Priority & Status Row -->
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label for="taskPriority" class="form-label fw-semibold">Mức độ ưu tiên</label>
-                            <select class="form-select" id="taskPriority" th:field="*{priority}">
-                                <option th:each="p : ${priorities}"
-                                        th:value="${p}"
-                                        th:text="${p.displayName}">
-                                </option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="taskStatus" class="form-label fw-semibold">Trạng thái</label>
-                            <select class="form-select" id="taskStatus" th:field="*{status}">
-                                <option th:each="s : ${statuses}"
-                                        th:value="${s}"
-                                        th:text="${s.displayName}">
-                                </option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Due Date -->
-                    <div class="mb-2">
-                        <label for="taskDueDate" class="form-label fw-semibold">Hạn chót</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-body-secondary"><i class="bi bi-calendar-event text-secondary"></i></span>
-                            <input type="date" class="form-control" id="taskDueDate" th:field="*{dueDate}">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="modal-footer border-top bg-body-tertiary">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
-                    <button type="submit" class="btn btn-primary fw-semibold px-4">
-                        <i class="bi bi-save me-1"></i> Lưu công việc
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Bootstrap 5.3 JS Bundle CDN -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-<!-- Global Functions for Dark Mode, Create Modal & Edit Modal -->
-<script>
-    // 1. Quản lý Dark Mode
-    const themeToggleBtn = document.getElementById('themeToggle');
-    const themeIcon = document.getElementById('themeIcon');
-
-    function updateThemeUI(theme) {
-        if (!themeIcon) return;
-        if (theme === 'dark') {
-            themeIcon.classList.remove('bi-moon-stars-fill');
-            themeIcon.classList.add('bi-sun-fill');
-        } else {
-            themeIcon.classList.remove('bi-sun-fill');
-            themeIcon.classList.add('bi-moon-stars-fill');
-        }
-    }
-
-    // Cập nhật icon lúc tải trang
-    updateThemeUI(document.documentElement.getAttribute('data-bs-theme'));
-
-    if (themeToggleBtn) {
-        themeToggleBtn.addEventListener('click', function() {
-            const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-bs-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            updateThemeUI(newTheme);
-        });
-    }
-
-    // 2. Mở Modal Thêm mới công việc (Reset Form)
-    function openCreateModal() {
-        document.getElementById('taskModalTitle').innerHTML = '<i class="bi bi-plus-circle text-success me-2"></i> Thêm công việc mới';
-        document.getElementById('taskId').value = '';
-        document.getElementById('taskTitle').value = '';
-        document.getElementById('taskDescription').value = '';
-        document.getElementById('taskPriority').value = 'MEDIUM';
-        document.getElementById('taskStatus').value = 'TODO';
-        document.getElementById('taskDueDate').value = '';
-
-        // Xóa class validation cũ nếu có
-        const titleInput = document.getElementById('taskTitle');
-        if (titleInput) {
-            titleInput.classList.remove('is-invalid');
-            const feedback = titleInput.parentElement.querySelector('.invalid-feedback');
-            if (feedback) feedback.style.display = 'none';
-        }
-
-        const modalEl = document.getElementById('taskModal');
-        if (modalEl) {
-            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-            modal.show();
-        }
-    }
-
-    // 3. Mở Modal Chỉnh sửa công việc (Đổ dữ liệu từ data-* attributes của nút bấm)
-    function openEditModal(btn) {
-        if (!btn) return;
-        document.getElementById('taskModalTitle').innerHTML = '<i class="bi bi-pencil-square text-primary me-2"></i> Cập nhật công việc';
-        document.getElementById('taskId').value = btn.getAttribute('data-id') || '';
-        document.getElementById('taskTitle').value = btn.getAttribute('data-title') || '';
-        document.getElementById('taskDescription').value = btn.getAttribute('data-description') || '';
-        document.getElementById('taskPriority').value = btn.getAttribute('data-priority') || 'MEDIUM';
-        document.getElementById('taskStatus').value = btn.getAttribute('data-status') || 'TODO';
-        document.getElementById('taskDueDate').value = btn.getAttribute('data-duedate') || '';
-
-        // Xóa class validation cũ nếu có
-        const titleInput = document.getElementById('taskTitle');
-        if (titleInput) {
-            titleInput.classList.remove('is-invalid');
-            const feedback = titleInput.parentElement.querySelector('.invalid-feedback');
-            if (feedback) feedback.style.display = 'none';
-        }
-
-        const modalEl = document.getElementById('taskModal');
-        if (modalEl) {
-            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-            modal.show();
-        }
-    }
-</script>
-
-<!-- Tự động mở Modal nếu có lỗi validation trả về qua flash attribute openModal -->
-<script th:inline="javascript">
-    const shouldOpen = /*[[${openModal}]]*/ false;
-    if (shouldOpen) {
-        const modalEl = document.getElementById('taskModal');
-        if (modalEl) {
-            const taskIdVal = document.getElementById('taskId').value;
-            if (taskIdVal) {
-                document.getElementById('taskModalTitle').innerHTML = '<i class="bi bi-pencil-square text-primary me-2"></i> Cập nhật công việc';
+        function updateThemeUI(theme) {
+            if (!themeIcon) return;
+            if (theme === 'dark') {
+                themeIcon.classList.remove('bi-moon-stars-fill');
+                themeIcon.classList.add('bi-sun-fill');
             } else {
-                document.getElementById('taskModalTitle').innerHTML = '<i class="bi bi-plus-circle text-success me-2"></i> Thêm công việc mới';
+                themeIcon.classList.remove('bi-sun-fill');
+                themeIcon.classList.add('bi-moon-stars-fill');
             }
-            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-            modal.show();
         }
-    }
-</script>
+
+        // Cập nhật icon lúc tải trang
+        updateThemeUI(document.documentElement.getAttribute('data-bs-theme'));
+
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', function () {
+                const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-bs-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                updateThemeUI(newTheme);
+            });
+        }
+
+        // 2. Mở Modal Thêm mới công việc (Reset Form)
+        function openCreateModal() {
+            document.getElementById('taskModalTitle').innerHTML = '<i class="bi bi-plus-circle text-success me-2"></i> Thêm công việc mới';
+            document.getElementById('taskId').value = '';
+            document.getElementById('taskTitle').value = '';
+            document.getElementById('taskDescription').value = '';
+            document.getElementById('taskPriority').value = 'MEDIUM';
+            document.getElementById('taskStatus').value = 'TODO';
+            document.getElementById('taskDueDate').value = '';
+
+            // Xóa class validation cũ nếu có
+            const titleInput = document.getElementById('taskTitle');
+            if (titleInput) {
+                titleInput.classList.remove('is-invalid');
+                const feedback = titleInput.parentElement.querySelector('.invalid-feedback');
+                if (feedback) feedback.style.display = 'none';
+            }
+
+            const modalEl = document.getElementById('taskModal');
+            if (modalEl) {
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
+            }
+        }
+
+        // 3. Mở Modal Chỉnh sửa công việc (Đổ dữ liệu từ data-* attributes của nút bấm)
+        function openEditModal(btn) {
+            if (!btn) return;
+            document.getElementById('taskModalTitle').innerHTML = '<i class="bi bi-pencil-square text-primary me-2"></i> Cập nhật công việc';
+            document.getElementById('taskId').value = btn.getAttribute('data-id') || '';
+            document.getElementById('taskTitle').value = btn.getAttribute('data-title') || '';
+            document.getElementById('taskDescription').value = btn.getAttribute('data-description') || '';
+            document.getElementById('taskPriority').value = btn.getAttribute('data-priority') || 'MEDIUM';
+            document.getElementById('taskStatus').value = btn.getAttribute('data-status') || 'TODO';
+            document.getElementById('taskDueDate').value = btn.getAttribute('data-duedate') || '';
+
+            // Xóa class validation cũ nếu có
+            const titleInput = document.getElementById('taskTitle');
+            if (titleInput) {
+                titleInput.classList.remove('is-invalid');
+                const feedback = titleInput.parentElement.querySelector('.invalid-feedback');
+                if (feedback) feedback.style.display = 'none';
+            }
+
+            const modalEl = document.getElementById('taskModal');
+            if (modalEl) {
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
+            }
+        }
+    </script>
+
+    <!-- Tự động mở Modal nếu có lỗi validation trả về qua flash attribute openModal -->
+    <script th:inline="javascript">
+        const shouldOpen = /*[[${openModal}]]*/ false;
+        if (shouldOpen) {
+            const modalEl = document.getElementById('taskModal');
+            if (modalEl) {
+                const taskIdVal = document.getElementById('taskId').value;
+                if (taskIdVal) {
+                    document.getElementById('taskModalTitle').innerHTML = '<i class="bi bi-pencil-square text-primary me-2"></i> Cập nhật công việc';
+                } else {
+                    document.getElementById('taskModalTitle').innerHTML = '<i class="bi bi-plus-circle text-success me-2"></i> Thêm công việc mới';
+                }
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
+            }
+        }
+    </script>
 </body>
+
 </html>
